@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Trek Animation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        #version 300 es
+        precision highp float;
+        uniform float iTime;
+        uniform vec2 iResolution;
+        out vec4 fragColor;
+
+        float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy - .5 * iResolution.xy) / min(iResolution.y, iResolution.x);
+            vec3 col = vec3(0);
+            
+            // Logika partikel cahaya dari video
+            for(float i=0.; i<64.; i++) {
+                float h = hash(i);
+                float speed = 0.5 + h;
+                float t = fract(iTime * 0.2 * speed + h);
+                vec2 p = vec2(uv.x - (t * 2.0 - 1.0), uv.y + (h * 0.6 - 0.3));
+                float l = length(p * vec2(1.0, 40.0));
+                col += (0.002 / l) * vec3(1.0, 0.7, 0.4);
+            }
+
+            fragColor = vec4(col, 1.0);
+        }
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
