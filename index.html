@@ -1,97 +1,718 @@
 <!DOCTYPE html>
-<html lang="en">
-
-  <head>
+<html lang="id">
+<head>
     <meta charset="UTF-8">
-    <title>Star Trek</title>
-    <link rel="stylesheet" href="./style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>North City - Advanced Risk System</title>
+    <style>
+        /* CSS ASLI DAN TAMBAHAN FITUR SEBELUMNYA */
+        .jail-filter { filter: grayscale(100%); transition: 0.5s; }
+        *{ margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
+        body{ background:#0f0f0f; color:white; overflow-x:hidden; transition: 0.3s; }
 
-  </head>
-    
-  <body>
-  <canvas id="canvas"></canvas>
-<textarea id="codeEditor" class="editor" spellcheck="false" autocorrect="off" autocapitalize="off" translate="no" oninput="render()"></textarea>
-<pre id="error"></pre>
-<div id="indicator"></div>
-<div id="controls">
-  <div class="controls">
-    <input id="btnToggleView" class="icon" type="checkbox" name="toggleView" onclick="toggleView()">
-    <input id="btnToggleResolution" class="icon" type="checkbox" name="toggleResolution" onchange="toggleResolution()">
-    <input id="btnReset" class="icon" type="checkbox" name="reset" onclick="reset()">
-  </div>
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        
+        .locked-filter { filter: grayscale(100%) brightness(0.2) !important; cursor: not-allowed; }
+        .lock-icon { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 20px; z-index: 5; filter: none !important; 
+        }
+        .border-item { position: relative; overflow: hidden; border: 2px solid #333; }
+        .shake-effect { animation: shake 0.3s; animation-iteration-count: 1; }
+
+        /* MODAL BORDER AVATAR */
+        #borderModal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 10002; }
+        .border-content { background: #1b1b1b; padding: 25px; border-radius: 20px; border: 2px solid #333; text-align: center; width: 320px; max-height: 80vh; overflow-y: auto; }
+        .border-grid { display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; gap: 15px; margin: 20px 0; }
+        .border-item { width: 60px; height: 60px; border-radius: 50%; background: #222; cursor: pointer; border: 4px solid transparent; transition: 0.3s; position: relative; }
+        .border-item:hover { transform: scale(1.1); }
+        
+        /* EFEK BORDER AVATAR */
+        #avatarCircle { transition: transform 0.2s, box-shadow 0.3s; }
+        .b-gold-luber { border-color: #ffd447 !important; box-shadow: 0 0 10px #ffd447; animation: luber-gold 2.5s infinite; }
+        @keyframes luber-gold { 0% { box-shadow: 0 0 10px #ffd447; } 50% { box-shadow: 0 0 35px #ffe066, 0 0 55px #ffd447; } 100% { box-shadow: 0 0 10px #ffd447; } }
+        .b-tech-blue { border: 4px solid transparent !important; box-shadow: 0 0 15px #47a7ff; }
+        .b-tech-blue::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; border: 3px dashed #47a7ff; animation: rotate-tech 6s linear infinite; pointer-events: none; }
+        @keyframes rotate-tech { to { transform: rotate(360deg); } }
+        .b-neon-fire { border-color: #ff4747 !important; box-shadow: 0 0 10px #ff4747; }
+        .b-neon-fire::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; border-top: 4px solid #ff4747; animation: rotate-tech 1.5s linear infinite reverse; filter: blur(2px); }
+        .b-nature-green { border: 4px double #6dff7d !important; box-shadow: 0 0 10px #6dff7d; }
+        .b-nature-green::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 4px solid #6dff7d; animation: pulse-nature 4s infinite ease-in-out; }
+        @keyframes pulse-nature { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.6; } }
+        .b-void-purple { border-color: #ae47ff !important; box-shadow: 0 0 15px #ae47ff; }
+        .b-void-purple::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; background: radial-gradient(circle, transparent 50%, rgba(174, 71, 255, 0.4) 100%); animation: emanate-purple 3s infinite; }
+        @keyframes emanate-purple { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+        .b-iron-tech { border: 4px solid #aaa !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.3); }
+
+        /* UI ELEMENTS */
+        #jailOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 20000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .bail-btn { background: #ff4747; color: white; padding: 8px 20px; border-radius: 8px; font-size: 12px; margin-top: 20px; border: none; font-weight: bold; }
+        #failOverlay { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.4); z-index: 9999; display: none; pointer-events: none; }
+        #buyNotif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #6dff7d; color: black; padding: 10px 20px; border-radius: 10px; font-weight: bold; font-size: 12px; z-index: 10001; display: none; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; }
+        .modal-content { background: #1b1b1b; border: 2px solid #2d2d2d; border-radius: 20px; padding: 20px; width: 100%; max-width: 350px; text-align: center; }
+        .header{ position:sticky; top:0; z-index:999; background:#181818; padding:12px; border-bottom:2px solid #2d2d2d; }
+        .logo{ font-size:18px; font-weight:bold; color:#6dff7d; }
+        .topstats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+        .statbox{ background:#202020; padding:8px; border-radius:10px; font-size:11px; display:flex; flex-direction:column; }
+        .time-lane { font-size:9px; color:#aaa; margin-top:3px; font-style:italic; min-height: 12px; }
+        .bar{ height:7px; background:#333; border-radius:20px; overflow:hidden; margin-top:5px; }
+        .fill{ height:100%; transition:0.2s; }
+        .energy{ background:#47ff72; } .nerve{ background:#ff4747; } .happy{ background:#47a7ff; } .life{ background:#ffd447; } .exp-bar { background: #ae47ff; }
+        .risk-container { margin: 10px 0; background: #111; padding: 10px; border-radius: 10px; border: 1px solid #333; }
+        .risk-bar { height: 6px; width: 100%; background: #333; border-radius: 10px; margin-top: 6px; }
+        #riskFill { height: 100%; width: 33%; border-radius: 10px; transition: 1s ease-in-out; }
+        .container{ padding:12px; padding-bottom:100px; }
+        .page{ display:none; }
+        .active{ display:block; }
+        .card{ background:#1b1b1b; border:1px solid #2f2f2f; padding:14px; border-radius:15px; margin-bottom:12px; }
+        .card h2{ margin-bottom:12px; color:#6dff7d; font-size:18px; }
+        button{ width:100%; padding:12px; background:#2d2d2d; color:white; border:none; border-radius:10px; margin-top:10px; font-size:14px; cursor:pointer; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; background: #1a1a1a; }
+        .input-box { width: 100%; padding: 12px; background: #111; border: 1px solid #333; border-radius: 10px; color: white; margin-top: 10px; text-align: center; }
+        .list-item { background: #242424; padding: 12px; border-radius: 10px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .profileRow{ display:flex; justify-content:space-between; margin-top:8px; padding:6px 0; border-bottom:1px solid #2c2c2c; font-size: 13px; }
+        .log { font-size: 12px; color: #ffe14d; text-align: center; margin-bottom: 10px; min-height: 15px; }
+        .daily-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
+        .daily-box { background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px 5px; font-size: 9px; text-align: center; color: #666; }
+        .daily-box.active { border-color: #6dff7d; background: #1a2a1a; color: #fff; box-shadow: 0 0 5px #6dff7d; }
+        .daily-box.claimed { opacity: 0.4; text-decoration: line-through; background: #000; }
+        .nav{ position:fixed; bottom:0; left:0; width:100%; display:flex; background:#181818; border-top:2px solid #2a2a2a; z-index:999; height:65px; }
+        .nav button{ margin:0; border-radius:0; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:9px; background:none; color:#a1a1a1; border:none;}
+        .nav button .nav-icon{ font-size:18px; margin-bottom:4px; }
+
+        /* SLOTS STYLING */
+        .slots-machine { background: #000; border: 4px solid #333; padding: 15px; border-radius: 15px; margin: 15px 0; }
+        .slots-reel-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        .reel { width: 60px; height: 60px; background: #1b1b1b; border: 2px solid #444; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; transition: 0.1s; }
+        .bet-selector { display: flex; justify-content: space-around; margin-top: 10px; }
+        .bet-btn { background: #222; border: 1px solid #444; font-size: 10px; padding: 5px; }
+        .bet-btn.active { border-color: #6dff7d; color: #6dff7d; }
+    </style>
+</head>
+<body id="gameBody">
+
+<div id="borderModal">
+    <div class="border-content">
+        <h3 style="color:#6dff7d; font-size:14px; margin-bottom:10px;">Select Advanced Style</h3>
+        <div class="border-grid">
+            <div class="border-item b-gold-luber" onclick="applyBorder('b-gold-luber')"></div>
+            <div class="border-item b-tech-blue" onclick="applyBorder('b-tech-blue')"></div>
+            <div class="border-item b-neon-fire" onclick="applyBorder('b-neon-fire')"></div>
+            <div class="border-item b-nature-green" onclick="applyBorder('b-nature-green')"></div>
+            <div class="border-item b-void-purple" onclick="applyBorder('b-void-purple')"></div>
+            <div class="border-item b-iron-tech" onclick="applyBorder('b-iron-tech')"></div>
+        </div>
+        <button onclick="triggerAvatarUpload()" style="font-size:11px; background:#333;">Upload Photo</button>
+        <button onclick="closeBorderModal()" style="background:none; color:#888; font-size:11px; margin-top:5px;">Close</button>
+    </div>
 </div>
-<script type="x-shader/x-fragment">#version 300 es
 
-/*********
-* made by Matthias Hurrle (@atzedent)
-*
-*	To explore strange new worlds, to seek out new life
-*	and new civilizations, to boldly go where no man has
-*	gone before.
-*/
-precision highp float;
-out vec4 O;
-uniform vec2 resolution;
-uniform float time;
-uniform sampler2D pebbles;
-#define FC gl_FragCoord.xy
-#define T time
-#define R resolution
-#define MN min(R.x,R.y)
-// Returns a pseudo random number for a given point (white noise)
-float rnd(vec2 p) {
-  p=fract(p*vec2(12.9898,78.233));
-  p+=dot(p,p+34.56);
-  return fract(p.x*p.y);
-}
-// Returns a pseudo random number for a given point (value noise)
-float noise(in vec2 p) {
-  vec2 i=floor(p), f=fract(p), u=f*f*(3.-2.*f);
-  float
-  a=rnd(i),
-  b=rnd(i+vec2(1,0)),
-  c=rnd(i+vec2(0,1)),
-  d=rnd(i+1.);
-  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
-}
-// Returns a pseudo random number for a given point (fractal noise)
-float fbm(vec2 p) {
-  float t=.0, a=1.; mat2 m=mat2(1.,-.5,.2,1.2);
-  for (int i=0; i<5; i++) {
-    t+=a*noise(p);
-    p*=2.*m;
-    a*=.5;
-  }
-  return t;
-}
-float clouds(vec2 p) {
-	float d=1., t=.0;
-	for (float i=.0; i<3.; i++) {
-		float a=d*fbm(i*10.+p.x*.2+.2*(1.+i)*p.y+d+i*i+p);
-		t=mix(t,d,a);
-		d=a;
-		p*=2./(i+1.);
-	}
-	return t;
-}
-void main(void) {
-	vec2 uv=(FC-.5*R)/MN,st=uv*vec2(2,1);
-	vec3 col=vec3(0);
-	float bg=clouds(vec2(st.x+T*.5,-st.y));
-	uv*=1.-.3*(sin(T*.2)*.5+.5);
-	for (float i=1.; i<12.; i++) {
-		uv+=.1*cos(i*vec2(.1+.01*i, .8)+i*i+T*.5+.1*uv.x);
-		vec2 p=uv;
-		float d=length(p);
-		col+=.00125/d*(cos(sin(i)*vec3(1,2,3))+1.);
-		float b=noise(i+p+bg*1.731);
-		col+=.002*b/length(max(p,vec2(b*p.x*.02,p.y)));
-		col=mix(col,vec3(bg*.25,bg*.137,bg*.05),d);
-	}
-	O=vec4(col,1);
-}</script>
-    <script  src="./script.js"></script>
+<div id="jailOverlay">
+    <h1 style="color: #ff4747;">ANDA DI PENJARA</h1>
+    <p id="jailTimer" style="font-size: 24px; font-weight: bold; margin: 15px 0; color: white;">00:60</p>
+    <button class="bail-btn" onclick="payBail()">Bayar Jaminan $50,000</button>
+</div>
 
-  </body>
-  
+<div id="failOverlay"></div>
+<div id="buyNotif">Item Bought!</div>
+<input type="file" id="avatarInput" style="display:none" accept="image/*" onchange="uploadAvatar(event)">
+
+<div id="nameScreen" style="position:fixed;inset:0;background:#0f0f0f;z-index:50000;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#1b1b1b;padding:25px;border-radius:20px;width:100%;max-width:400px;border:1px solid #333;text-align:center;">
+        <h1 style="color:#6dff7d;">NORTH CITY</h1>
+        <input id="nameInput" type="text" placeholder="Character Name..." class="input-box">
+        <button onclick="createCharacter()" style="background:#6dff7d;color:#000;font-weight:bold;">START GAME</button>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <h2>Settings</h2>
+        <button onclick="changeLang('id')">Bahasa Indonesia</button>
+        <button onclick="changeLang('en')">English</button>
+        <hr style="margin:15px 0; border:0; border-top:1px solid #333;">
+        <input type="text" id="delInput" class="input-box" placeholder="Ketik DELETE">
+        <button onclick="doReset()" style="background:#441111; color:#ff4747;">RESET CHARACTER</button>
+        <button onclick="closeSettings()" style="background:none; color:#888;">Close</button>
+    </div>
+</div>
+
+<div id="bankModal" class="modal">
+    <div class="modal-content">
+        <h2 style="color:#6dff7d;">City Bank</h2>
+        <div style="background:#111; padding:10px; border-radius:10px; margin:10px 0; color:#6dff7d;">Balance: $<span id="bBalance">0</span></div>
+        <input type="number" id="bankAmt" class="input-box" placeholder="Amount...">
+        <div style="display:flex; gap:10px;"><button onclick="bankOp('dep')">Deposit</button><button onclick="bankOp('wit')">Withdraw</button></div>
+        <button onclick="closeBank()" style="background:none;">Back</button>
+    </div>
+</div>
+
+<div id="slotsModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <h2 style="color:#ffd447;">🎰 NORTH SLOTS</h2>
+        <div class="slots-machine">
+            <div class="slots-reel-container">
+                <div id="reel1" class="reel">7</div>
+                <div id="reel2" class="reel">7</div>
+                <div id="reel3" class="reel">7</div>
+            </div>
+            <div id="slotsResult" style="font-size: 11px; height: 15px; color:#aaa;">Pilih Taruhan & Spin!</div>
+        </div>
+        <div class="bet-selector">
+            <button class="bet-btn active" onclick="setSlotBet(100)">$100</button>
+            <button class="bet-btn" onclick="setSlotBet(1000)">$1k</button>
+            <button class="bet-btn" onclick="setSlotBet(10000)">$10k</button>
+            <button class="bet-btn" onclick="setSlotBet(100000)">$100k</button>
+        </div>
+        <button id="spinBtn" onclick="spinSlots()" style="background:#ffd447; color:#000; font-weight:bold;">SPIN</button>
+        <button onclick="closeSlots()" style="background:none; color:#888;">Keluar</button>
+    </div>
+</div>
+
+<div class="header">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <div id="avatarCircle" onclick="openBorderModal()" style="width:48px;height:48px;border-radius:50%;background:#222;display:flex;align-items:center;justify-content:center;font-weight:bold; cursor:pointer; background-size:cover; background-position:center; position:relative; border:4px solid #333; box-shadow: 0 0 5px rgba(0,0,0,0.5);">
+            P </div>
+        <div><div class="logo">NORTH CITY</div><div id="pNameTop" style="font-size:10px;color:#888;">Player</div></div>
+    </div>
+    <div class="topstats">
+        <div class="statbox"><span>Money</span><br><b>$<span id="money">0</span></b></div>
+        <div class="statbox">Level <span id="level">1</span><div class="bar"><div class="fill exp-bar" id="expBar"></div></div></div>
+        <div class="statbox">Energy <span id="energyText">0/0</span><div class="bar"><div class="fill energy" id="energyBar"></div></div><div class="time-lane" id="reg-energy">Full</div></div>
+        <div class="statbox">Nerve <span id="nerveText">0/0</span><div class="bar"><div class="fill nerve" id="nerveBar"></div></div><div class="time-lane" id="reg-nerve">Full</div></div>
+        <div class="statbox">Happy <span id="happyText">0/0</span><div class="bar"><div class="fill happy" id="happyBar"></div></div><div class="time-lane" id="reg-happy">Full</div></div>
+        <div class="statbox">Life <span id="lifeText">0/0</span><div class="bar"><div class="fill life" id="lifeBar"></div></div><div class="time-lane" id="reg-life">Full</div></div>
+    </div>
+</div>
+
+<div class="container">
+    <div id="home" class="page active">
+        <div class="card">
+            <h2>Character Stats</h2>
+            <div class="profileRow"><span>INT</span><b id="pIntel">0</b></div>
+            <div class="profileRow"><span>STR</span><b id="pStr">0</b></div>
+        </div>
+        <div class="card">
+            <h2>7-Day Rewards</h2>
+            <div class="daily-grid" id="dailyGrid"></div>
+            <button id="dailyBtn" onclick="claimDaily()">Claim Reward</button>
+        </div>
+    </div>
+
+    <div id="inventory" class="page">
+        <div class="card"><h2>Inventory</h2><div id="invList"></div></div>
+    </div>
+
+    <div id="crimes" class="page">
+        <div class="card">
+            <h2>Crimes</h2>
+            <div class="risk-container">
+                <div style="display:flex; justify-content:space-between; font-size:10px;">
+                    <span>Police Alert Level:</span>
+                    <b id="riskStatus" style="color:#6dff7d;">SAFE</b>
+                </div>
+                <div class="risk-bar"><div id="riskFill"></div></div>
+            </div>
+            <div class="log" id="crimeLog">Mau Maling bro? Wkwkwk</div>
+            <div class="list-item"><div>Pickpocket<br><small>Nerve: 5 | +4 EXP</small></div><button style="width:80px;" onclick="doCrime(300, 5, 4)">DO IT</button></div>
+            <div class="list-item">
+                <div>Bank Heist<br><small style="color: #ff4747;">REQ: 50 INT, 40 STR | Nerve:30</small></div>
+                <button style="width:80px; background: #ff4747;" onclick="doBankHeist()">HEIST</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="gym" class="page">
+        <div class="card">
+            <h2>Training</h2>
+            <button onclick="train('intel')">🧠 Study INT (10 Happy)</button>
+            <button onclick="train('str')">🫁 Train STR (10 Energy)</button>
+        </div>
+    </div>
+
+    <div id="city" class="page">
+        <div class="card">
+            <button onclick="openBank()">🏦 Enter Bank</button>
+            <button onclick="openSlots()" style="background: #333; border: 1px solid #ffd447; color: #ffd447;">🎰 Play Slots</button>
+            <button onclick="hospital()">🏥 Hospital $500</button>
+        </div>
+    </div>
+
+    <div id="market" class="page">
+        <div class="card">
+            <h2 style="border-bottom: 1px solid #333; padding-bottom: 5px;">🛒 Swalayan</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <div style="background: #111; border: 1px solid #333; border-radius: 12px; padding: 12px; text-align: center;">
+                    <div style="font-size: 24px;">🍫</div>
+                    <div style="font-size: 12px; font-weight: bold; margin: 5px 0;">Chocolate</div>
+                    <div style="font-size: 10px; color: #47a7ff; margin-bottom: 8px;">+20 Happy</div>
+                    <button style="padding: 6px; font-size: 11px; margin-top: 0;" onclick="buyItem('Chocolate', 500, 20, 'happy')">$500</button>
+                </div>
+                <div style="background: #111; border: 1px solid #333; border-radius: 12px; padding: 12px; text-align: center;">
+                    <div style="font-size: 24px;">🧃</div>
+                    <div style="font-size: 12px; font-weight: bold; margin: 5px 0;">Energy Drink</div>
+                    <div style="font-size: 10px; color: #47ff72; margin-bottom: 8px;">+50 Energy</div>
+                    <button style="padding: 6px; font-size: 11px; margin-top: 0;" onclick="buyItem('Energy Drink', 1500, 50, 'energy')">$1,500</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border: 1px solid #441111;">
+            <h2 style="color: #ff4747; border-bottom: 1px solid #441111; padding-bottom: 5px;">💀 Black Market</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <div style="background: #111; border: 1px solid #441111; border-radius: 12px; padding: 12px; text-align: center;">
+                    <div style="font-size: 24px;">🌿</div>
+                    <div style="font-size: 12px; font-weight: bold; margin: 5px 0;">Marijuana</div>
+                    <div style="font-size: 10px; color: #ff4747; margin-bottom: 8px;">+10 Nerve</div>
+                    <button style="padding: 6px; font-size: 11px; margin-top: 0; background: #441111;" onclick="buyItem('Marijuana', 3000, 10, 'nerve')">$3,000</button>
+                </div>
+                <div style="background: #111; border: 1px solid #441111; border-radius: 12px; padding: 12px; text-align: center;">
+                    <div style="font-size: 24px;">🍀</div>
+                    <div style="font-size: 12px; font-weight: bold; margin: 5px 0;">Cannabis</div>
+                    <div style="font-size: 10px; color: #ff4747; margin-bottom: 8px;">+15 Nerve</div>
+                    <button style="padding: 6px; font-size: 11px; margin-top: 0; background: #441111;" onclick="buyItem('Cannabis', 4500, 15, 'nerve')">$4,500</button>
+                </div>
+            </div>
+            <div class="list-item" style="margin-top: 10px; border: 1px solid #ff4747; background: #1a0505;">
+                <div style="text-align: left;">
+                    <b style="color: #ff4747;">Morphine 💉</b><br>
+                    <small style="color: #ccc;">+15 Energy | +25 Nerve</small>
+                </div>
+                <button style="width: 80px; background: #801010; font-size: 11px;" onclick="buyMorphine()">$8,000</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="nav" id="mainNav">
+    <button onclick="openPage('home')"><span class="nav-icon">🏠</span><span>Home</span></button>
+    <button onclick="openPage('inventory')"><span class="nav-icon">🎒</span><span>Bag</span></button>
+    <button onclick="openPage('crimes')"><span class="nav-icon">⛃</span><span>Crimes</span></button>
+    <button onclick="openPage('gym')"><span class="nav-icon">★</span><span>Training</span></button>
+    <button onclick="openPage('city')"><span class="nav-icon">✈︎</span><span>City</span></button>
+    <button onclick="openPage('market')"><span class="nav-icon">🛒</span><span>Shop</span></button>
+    <button onclick="openSettings()"><span class="nav-icon">⚙️</span><span>Set</span></button>
+</div>
+
+<script>
+let p = {
+    name: '', money: 100, bank: 0, level: 1, exp: 0,
+    energy: 100, maxE: 100, nerve: 50, maxN: 50, happy: 100, maxH: 100, life: 100, maxL: 100,
+    intel: 10, str: 10, streak: 0, lastClaim: 0, lang: 'id', inv: [],
+    inJail: false, jailTime: 0, avatarImg: null, 
+    activeBorder: '', selectedBorder: '',
+    ownedBorders: [],
+    timers: { energy: 30, nerve: 30, happy: 30, life: 30 }
+};
+
+const borderList = [
+    { id: 'b-gold-luber', name: 'Gold Pulse', price: 500000 },
+    { id: 'b-tech-blue', name: 'Cyber Blue', price: 1550000 },
+    { id: 'b-neon-fire', name: 'Neon Red', price: 1200000 },
+    { id: 'b-nature-green', name: 'Nature Green', price: 1000000 },
+    { id: 'b-void-purple', name: 'Void Purple', price: 200000 },
+    { id: 'b-iron-tech', name: 'Bright White', price: 100000 }
+];
+
+let currentRisk = "low";
+let currentSlotBet = 100;
+const slotIcons = ["🍒", "🍋", "🍇", "🔔", "⭐", "💎", "7️⃣"];
+
+function updateRiskSystem() {
+    const r = Math.random();
+    const statusText = document.getElementById('riskStatus');
+    const fill = document.getElementById('riskFill');
+    if(!statusText || !fill) return;
+    if (r < 0.6) { 
+        currentRisk = "low"; statusText.innerText = "SAFE (GREEN)"; statusText.style.color = "#6dff7d"; fill.style.background = "#6dff7d"; fill.style.width = "33%";
+    } else if (r < 0.9) { 
+        currentRisk = "med"; statusText.innerText = "CAUTION (YELLOW)"; statusText.style.color = "#ffd447"; fill.style.background = "#ffd447"; fill.style.width = "66%";
+    } else { 
+        currentRisk = "high"; statusText.innerText = "DANGER (RED)"; statusText.style.color = "#ff4747"; fill.style.background = "#ff4747"; fill.style.width = "100%";
+    }
+}
+setInterval(updateRiskSystem, 5000);
+
+function updateUI(){
+    document.getElementById('money').innerText = p.money.toLocaleString();
+    document.getElementById('pIntel').innerText = p.intel;
+    document.getElementById('pStr').innerText = p.str;
+    document.getElementById('level').innerText = p.level;
+    document.getElementById('bBalance').innerText = p.bank.toLocaleString();
+    document.getElementById('pNameTop').innerText = p.name || '...';
+    
+    const circle = document.getElementById('avatarCircle');
+    if(p.avatarImg) {
+        circle.style.backgroundImage = `url(${p.avatarImg})`;
+        circle.innerText = '';
+    } else {
+        circle.innerText = p.name ? p.name[0].toUpperCase() : 'P';
+        circle.style.backgroundImage = 'none';
+    }
+
+    document.getElementById('energyText').innerText = `${p.energy}/${p.maxE}`;
+    document.getElementById('energyBar').style.width = (p.energy/p.maxE*100)+'%';
+    document.getElementById('nerveText').innerText = `${p.nerve}/${p.maxN}`;
+    document.getElementById('nerveBar').style.width = (p.nerve/p.maxN*100)+'%';
+    document.getElementById('happyText').innerText = `${p.happy}/${p.maxH}`;
+    document.getElementById('happyBar').style.width = (p.happy/p.maxH*100)+'%';
+    document.getElementById('lifeText').innerText = `${p.life}/${p.maxL}`;
+    document.getElementById('lifeBar').style.width = (p.life/p.maxL*100)+'%';
+    document.getElementById('expBar').style.width = (p.exp / (p.level * 100) * 100) + '%';
+    
+    renderDaily();
+    renderInventory();
+    checkJail();
+
+    if (p.life <= 0) {
+        p.life = 0;
+        document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+        document.getElementById('city').classList.add('active');
+        document.querySelectorAll('.nav button').forEach(btn => {
+            const clickStr = btn.getAttribute('onclick') || "";
+            if (!clickStr.includes('city')) btn.style.opacity = "0.3";
+        });
+    } else {
+        document.querySelectorAll('.nav button').forEach(btn => btn.style.opacity = "1");
+    }
+}
+
+function openPage(id) {
+    if (p.life <= 0 && id !== 'city') {
+        alert("Karaktermu kritis! Pergi ke Hospital di City.");
+        return;
+    }
+    document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+/* AVATAR & BORDER */
+function openBorderModal() {
+    document.getElementById('borderModal').style.display = 'flex';
+    renderBorderGrid();
+}
+
+function renderBorderGrid() {
+    const grid = document.querySelector('.border-grid');
+    grid.innerHTML = '';
+    borderList.forEach(b => {
+        const isOwned = p.ownedBorders.includes(b.id);
+        const item = document.createElement('div');
+        item.className = `border-item ${b.id} ${isOwned ? '' : 'locked-filter'}`;
+        item.innerHTML = `${isOwned ? '' : '<span class="lock-icon">🔒</span>'}<div style="position:absolute; bottom:-20px; width:100%; font-size:8px; color:#ffd447;">${isOwned ? '' : '$'+b.price.toLocaleString()}</div>`;
+        item.onclick = () => isOwned ? applyBorder(b.id) : buyBorder(b.id, b.price);
+        grid.appendChild(item);
+    });
+}
+
+function buyBorder(id, price) {
+    if (p.money >= price) {
+        p.money -= price; p.ownedBorders.push(id);
+        showNotif("Border Berhasil Dibeli!"); save(); renderBorderGrid(); updateUI();
+    } else { showNotif("Uang tidak cukup tcih!"); }
+}
+
+function applyBorder(style) {
+    const circle = document.getElementById('avatarCircle');
+    circle.className = '';
+    if(style) circle.classList.add(style);
+    p.selectedBorder = style; p.activeBorder = style;
+    save(); showNotif("Style Applied!");
+}
+
+function closeBorderModal() { document.getElementById('borderModal').style.display = 'none'; }
+function triggerAvatarUpload() { document.getElementById('avatarInput').click(); }
+function uploadAvatar(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) { p.avatarImg = e.target.result; save(); updateUI(); };
+        reader.readAsDataURL(file);
+    }
+}
+
+/* SLOTS GAME LOGIC */
+function openSlots() { document.getElementById('slotsModal').style.display = 'flex'; }
+function closeSlots() { document.getElementById('slotsModal').style.display = 'none'; }
+function setSlotBet(amt) {
+    currentSlotBet = amt;
+    document.querySelectorAll('.bet-btn').forEach(b => {
+        b.classList.remove('active');
+        if(b.innerText.includes(amt >= 1000 ? amt/1000 : amt)) b.classList.add('active');
+    });
+}
+
+function spinSlots() {
+    if (p.money < currentSlotBet) { showNotif("Uang tidak cukup!"); return; }
+    if (p.happy < 5) { showNotif("Kamu terlalu sedih untuk judi (Happy < 5)"); return; }
+
+    p.money -= currentSlotBet;
+    p.happy -= 5;
+    updateUI();
+    
+    const btn = document.getElementById('spinBtn');
+    const resText = document.getElementById('slotsResult');
+    btn.disabled = true;
+    resText.innerText = "Spinning...";
+
+    let duration = 1500;
+    let interval = setInterval(() => {
+        document.getElementById('reel1').innerText = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+        document.getElementById('reel2').innerText = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+        document.getElementById('reel3').innerText = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+    }, 100);
+
+    setTimeout(() => {
+        clearInterval(interval);
+        btn.disabled = false;
+        
+        const r1 = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+        const r2 = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+        const r3 = slotIcons[Math.floor(Math.random()*slotIcons.length)];
+        
+        document.getElementById('reel1').innerText = r1;
+        document.getElementById('reel2').innerText = r2;
+        document.getElementById('reel3').innerText = r3;
+
+        calculateSlotWin(r1, r2, r3);
+    }, duration);
+}
+
+function calculateSlotWin(r1, r2, r3) {
+    let winMult = 0;
+    const resText = document.getElementById('slotsResult');
+
+    if (r1 === r2 && r2 === r3) {
+        if (r1 === "7️⃣") winMult = 50;
+        else if (r1 === "💎") winMult = 20;
+        else if (r1 === "⭐") winMult = 10;
+        else winMult = 5;
+    } else if (r1 === r2 || r2 === r3 || r1 === r3) {
+        winMult = 2;
+    }
+
+    if (winMult > 0) {
+        let winAmt = currentSlotBet * winMult;
+        p.money += winAmt;
+        resText.innerText = `JACKPOT! Menang $${winAmt.toLocaleString()}`;
+        resText.style.color = "#ffd447";
+        showNotif(`WIN $${winAmt.toLocaleString()}`);
+    } else {
+        resText.innerText = "Coba lagi, jangan menyerah!";
+        resText.style.color = "#888";
+    }
+    save(); updateUI();
+}
+
+/* GAMEPLAY LOGIC */
+function renderDaily() {
+    const grid = document.getElementById('dailyGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    const now = Date.now();
+    const canClaim = (now - p.lastClaim) >= 86400000;
+    for(let i=0; i<7; i++) {
+        let box = document.createElement('div');
+        box.className = `daily-box ${i < p.streak ? 'claimed' : (i === p.streak && canClaim ? 'active' : '')}`;
+        box.innerHTML = `Day ${i+1}<br>$1k`;
+        grid.appendChild(box);
+    }
+    const btn = document.getElementById('dailyBtn');
+    if(btn) { btn.disabled = !canClaim; btn.innerText = canClaim ? "Claim Reward" : "Wait Next Day"; }
+}
+
+function claimDaily() {
+    if((Date.now() - p.lastClaim) >= 86400000) {
+        p.money += 1000; p.lastClaim = Date.now(); p.streak++;
+        if(p.streak > 7) p.streak = 1;
+        save(); updateUI();
+    }
+}
+
+function doCrime(reward, cost, xp) {
+    if(p.nerve < cost) { document.getElementById('crimeLog').innerText = "Nerve tidak cukup!"; return; }
+    p.nerve -= cost;
+    let failChance = (currentRisk === "low") ? 0.05 : (currentRisk === "med" ? 0.25 : 0.55);
+    if(Math.random() > failChance) { 
+        p.money += reward; p.exp += xp; 
+        document.getElementById('crimeLog').innerText = `Berhasil! +$${reward} | +${xp} EXP`; 
+        checkLevelUp();
+    } else {
+        let loss = Math.floor(Math.random() * 11) + 10;
+        p.life = Math.max(0, p.life - loss);
+        document.getElementById('crimeLog').innerText = `Tertangkap! HP -${loss}`;
+        triggerFail(); sendToJail();
+    }
+    save(); updateUI();
+}
+
+function doBankHeist() {
+    if(p.intel < 50 || p.str < 40) { document.getElementById('crimeLog').innerText = "Stats tidak cukup!"; return; }
+    if(p.nerve < 25) { document.getElementById('crimeLog').innerText = "Nerve tidak cukup!"; return; }
+    p.nerve -= 25; p.intel -= 50; p.str -= 40;
+    let failChance = (currentRisk === "low") ? 0.15 : (currentRisk === "med" ? 0.45 : 0.80);
+    if(Math.random() > failChance) { 
+        p.money += 20000; p.exp += 30;
+        document.getElementById('crimeLog').innerText = `HEIST SUKSES! +$20,000`; checkLevelUp();
+    } else { triggerFail(); sendToJail(); }
+    save(); updateUI();
+}
+
+function checkLevelUp() {
+    let req = p.level * 100;
+    if(p.exp >= req) { p.exp -= req; p.level++; alert("LEVEL UP!"); save(); updateUI(); }
+}
+
+function sendToJail() {
+    p.inJail = true; p.jailTime = 60;
+    document.getElementById('gameBody').classList.add('jail-filter');
+    save(); updateUI();
+}
+
+function payBail() {
+    if (p.money >= 50000) { p.money -= 50000; p.inJail = false; document.getElementById('gameBody').classList.remove('jail-filter'); save(); updateUI(); }
+}
+
+function checkJail() {
+    document.getElementById('jailOverlay').style.display = p.inJail ? 'flex' : 'none';
+    document.getElementById('mainNav').style.display = p.inJail ? 'none' : 'flex';
+}
+
+function triggerFail() {
+    let overlay = document.getElementById('failOverlay');
+    overlay.style.background = "rgba(255, 0, 0, 0.6)";
+    overlay.style.display = 'block';
+    document.getElementById('gameBody').classList.add('shake-effect');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.getElementById('gameBody').classList.remove('shake-effect');
+    }, 500);
+}
+
+function buyItem(name, price, boost, type) {
+    if(p.money >= price) {
+        p.money -= price;
+        let item = p.inv.find(i => i.name === name);
+        if(item) item.qty++; else p.inv.push({name, boost, type, qty: 1});
+        showNotif("Item Purchased!"); save(); updateUI();
+    }
+}
+
+function buyMorphine() {
+    if(p.money >= 8000) {
+        p.money -= 8000;
+        let item = p.inv.find(i => i.name === 'Morphine');
+        if(item) item.qty++; else p.inv.push({name: 'Morphine', boost: 0, type: 'special', qty: 1});
+        showNotif("Morphine Added!"); save(); updateUI();
+    }
+}
+
+function renderInventory() {
+    const container = document.getElementById('invList'); container.innerHTML = '';
+    p.inv.forEach((item, index) => {
+        let div = document.createElement('div'); div.className = 'list-item';
+        div.innerHTML = `<div>${item.name} (x${item.qty})</div><button style="width:80px;" onclick="useItem(${index})">Use</button>`;
+        container.appendChild(div);
+    });
+}
+
+function useItem(index) {
+    let it = p.inv[index];
+    if(it.name === 'Morphine') { p.energy = Math.min(p.maxE, p.energy + 15); p.nerve = Math.min(p.maxN, p.nerve + 25); }
+    else { p[it.type] = Math.min(p['max'+it.type.charAt(0).toUpperCase()], p[it.type] + it.boost); }
+    it.qty--; if(it.qty <= 0) p.inv.splice(index, 1);
+    save(); updateUI();
+}
+
+function train(type) {
+    if(type==='intel' && p.happy>=10){ p.happy-=10; p.intel+=2; }
+    else if(type==='str' && p.energy>=10){ p.energy-=10; p.str+=2; }
+    save(); updateUI();
+}
+
+function createCharacter() { 
+    let name = document.getElementById('nameInput').value;
+    if(name.length >= 3) { p.name = name; document.getElementById('nameScreen').style.display = 'none'; save(); updateUI(); }
+}
+
+function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
+function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+function changeLang(l) { p.lang = l; save(); updateUI(); closeSettings(); }
+function doReset() { if(document.getElementById('delInput').value === "DELETE") { localStorage.clear(); location.reload(); } }
+
+function openBank() { document.getElementById('bankModal').style.display = 'flex'; }
+function closeBank() { document.getElementById('bankModal').style.display = 'none'; }
+function bankOp(type) {
+    let amt = parseInt(document.getElementById('bankAmt').value);
+    if(amt > 0) {
+        if(type==='dep' && p.money>=amt){ p.money-=amt; p.bank+=amt; }
+        else if(type==='wit' && p.bank>=amt){ p.bank-=amt; p.money+=amt; }
+        save(); updateUI();
+    }
+}
+
+function showNotif(msg) {
+    let n = document.getElementById('buyNotif'); n.innerText = msg; n.style.display = 'block';
+    setTimeout(()=> n.style.display = 'none', 2000);
+}
+
+setInterval(() => {
+    if(p.inJail && p.jailTime > 0) {
+        p.jailTime--;
+        document.getElementById('jailTimer').innerText = `00:${p.jailTime < 10 ? '0'+p.jailTime : p.jailTime}`;
+        if(p.jailTime <= 0) { p.inJail = false; document.getElementById('gameBody').classList.remove('jail-filter'); save(); updateUI(); }
+    }
+    ['energy', 'nerve', 'happy', 'life'].forEach(s => {
+        const cur = p[s], max = p['max' + s.charAt(0).toUpperCase()], el = document.getElementById('reg-' + s);
+        if(cur >= max) { el.innerText = "Full"; el.style.color = "#6dff7d"; p.timers[s] = 30; }
+        else { p.timers[s]--; if(p.timers[s] <= 0) { p[s]++; p.timers[s] = 30; updateUI(); } el.innerText = `Regen: ${p.timers[s]}s`; }
+    });
+}, 1000);
+
+function hospital() {
+    // Cek apakah HP sudah penuh (maxL)
+    if (p.life >= p.maxL) {
+        showNotif("HP Anda sudah penuh!");
+        return; // Menghentikan fungsi agar tidak membayar
+    }
+    
+    // Jika HP tidak penuh, baru proses pembayaran
+    if (p.money >= 500) {
+        p.money -= 500;
+        p.life = p.maxL;
+        showNotif("Berhasil! HP kembali penuh.");
+        save();
+        updateUI();
+    } else {
+        showNotif("Uang tidak cukup!");
+    }
+}
+
+function save() { localStorage.setItem('NC_ULTRA_SAVE', JSON.stringify(p)); }
+function load() {
+    let d = localStorage.getItem('NC_ULTRA_SAVE');
+    if (d) {
+        p = Object.assign(p, JSON.parse(d));
+        if (p.name) document.getElementById('nameScreen').style.display = 'none';
+        if (p.inJail) document.getElementById('gameBody').classList.add('jail-filter');
+        if (p.selectedBorder) document.getElementById('avatarCircle').classList.add(p.selectedBorder);
+    }
+    updateUI();
+}
+load(); updateRiskSystem();
+</script>
+</body>
 </html>
