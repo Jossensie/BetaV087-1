@@ -1,72 +1,134 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Hand Tracking Robot Mobile</title>
+  <title>Robot Hand Tracking Mobile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Import Library -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    canvas { width: 100vw; height: 100vh; display: block; }
-    #video-input { display: none; } /* Sembunyikan video asli */
+    body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; }
+    /* Kotak Kamera Kecil di Pojok Kanan Bawah */
+    #video-container {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 120px;
+      height: 90px;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      overflow: hidden;
+      transform: scaleX(-1); /* Mirror agar seperti cermin */
+      z-index: 10;
+    }
+    #video-input { width: 100%; height: 100%; object-fit: cover; }
+    #status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #00ffcc;
+      background: rgba(0,0,0,0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
 
-  <video id="video-input"></video>
+  <div id="status">Status: Menunggu Kamera...</div>
+  
+  <div id="video-container">
+    <video id="video-input"></video>
+  </div>
 
   <script>
     const videoElement = document.getElementById('video-input');
+    const statusText = document.getElementById('status');
     
-    // --- 1. SETUP THREE.JS (DUNIA 3D) ---
+    // --- 1. SETUP THREE.JS ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Robot sederhana (diwakili kubus untuk tangan)
-    const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-    const material = new THREE.MeshNormalMaterial();
-    const robotHand = new THREE.Mesh(geometry, material);
-    scene.add(robotHand);
+    // Pencahayaan
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 5, 5).updateMatrix();
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
 
-    camera.position.z = 5;
+    // --- 2. MEMBUAT MODEL ROBOT (HIERARKI) ---
+    const robotGroup = new THREE.Group();
 
-    // --- 2. SETUP MEDIAPIPE (PELACAK TANGAN) ---
+    // Material Robot (Warna Metalik)
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.2 });
+
+    // Badan Robot
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 1), metalMat);
+    scene.add(torso);
+
+    // Lengan Atas
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2), metalMat);
+    upperArm.position.y = 1; // Geser ke posisi bahu
+    
+    // Sendi Siku
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2), metalMat);
+    forearm.position.y = 1.5; // Menyambung dari lengan atas
+
+    // Telapak Tangan
+    const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.2), new THREE.MeshStandardMaterial({color: 0x00ffcc}));
+    handMesh.position.y = 1;
+
+    // Menyusun Hierarki (Penting agar gerakan siku mengikuti bahu)
+    const armSystem = new THREE.Group();
+    armSystem.position.set(1.3, 1, 0); // Posisi bahu kanan
+    
+    const forearmSystem = new THREE.Group();
+    forearmSystem.position.y = 1; // Titik putar siku
+    
+    scene.add(armSystem);
+    armSystem.add(upperArm);
+    armSystem.add(forearmSystem);
+    forearmSystem.add(forearm);
+    forearmSystem.add(handMesh);
+
+    camera.position.z = 7;
+    camera.position.y = 1;
+
+    // --- 3. SETUP MEDIAPIPE ---
     const hands = new Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     hands.setOptions({
       maxNumHands: 1,
-      modelComplexity: 0, // 0 untuk performa HP lebih cepat, 1 untuk lebih akurat
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      modelComplexity: 0,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
     });
 
     hands.onResults((results) => {
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        
-        // Ambil koordinat pergelangan tangan (Titik 0)
-        // Kita balik koordinat X karena kamera depan biasanya mirror
-        const x = (landmarks[0].x - 0.5) * -10; 
-        const y = (landmarks[0].y - 0.5) * -10;
-        const z = landmarks[0].z * -10;
+        statusText.innerText = "Status: Tangan Terdeteksi";
+        const lm = results.multiHandLandmarks[0];
 
-        // Gerakkan robot sesuai tangan
-        robotHand.position.set(x, y, 0);
-        
-        // Opsional: Rotasi robot berdasarkan kemiringan tangan
-        robotHand.rotation.x = y * 0.5;
-        robotHand.rotation.y = x * 0.5;
+        // 1. Gerakkan Bahu (Berdasarkan titik 12/ujung jari atau rata-rata)
+        // Kita hitung rotasi berdasarkan posisi pergelangan tangan (Titik 0)
+        armSystem.rotation.z = (lm[0].x - 0.5) * -3;
+        armSystem.rotation.x = (lm[0].y - 0.5) * 3;
+
+        // 2. Gerakkan Siku (Berdasarkan jarak pergelangan ke jari tengah)
+        // Jika tangan menekuk, kita ubah rotasi forearmSystem
+        const dy = lm[12].y - lm[0].y;
+        forearmSystem.rotation.x = dy * 2;
+
+      } else {
+        statusText.innerText = "Status: Mencari Tangan...";
       }
     });
 
-    // --- 3. AKTIFKAN KAMERA HP ---
+    // --- 4. START KAMERA ---
     const cameraHelper = new Camera(videoElement, {
       onFrame: async () => {
         await hands.send({ image: videoElement });
@@ -76,14 +138,12 @@
     });
     cameraHelper.start();
 
-    // Render loop
     function animate() {
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
     }
     animate();
 
-    // Handle resize layar HP
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
